@@ -23,7 +23,7 @@
         <Button
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:text="更新"
+            android:text="@string/update_button"
             android:background="@android:color/holo_green_light"
             android:layout_margin="5dp"
             android:id="@+id/updata_button"
@@ -46,7 +46,7 @@
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="有嘢你就講！"
+        android:text="@string/say_button"
         android:background="@color/colorAccent"
         android:textColor="@android:color/white"
         android:textSize="30sp"
