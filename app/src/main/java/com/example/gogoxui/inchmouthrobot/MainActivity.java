@@ -5,6 +5,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Environment;
 import android.speech.RecognizerIntent;
@@ -25,6 +26,7 @@ import org.litepal.crud.DataSupport;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,6 +35,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Button bt_update;
     private Button bt_listen;
+    private Button bt_feedback;
     private ImageView img_show;
     private TextView tv_version;
     private TextView tv_tmp;
@@ -49,10 +53,14 @@ public class MainActivity extends AppCompatActivity {
     private String db_link;
     private TextToSpeech tts;
     private int listen_counter = 0;
+    private String whatIsaid= "";
+    private String saywhat= "";
+    private String feedbackMail;
+
 
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -60,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
         //////////////////
         bt_update = (Button) findViewById(R.id.updata_button);
         bt_listen = (Button) findViewById(R.id.listen_button);
+        bt_feedback = (Button) findViewById(R.id.feedback);
         tv_version = (TextView) findViewById(R.id.version_tv);
         img_show = (ImageView) findViewById(R.id.img_tv);
         tv_tmp = (TextView) findViewById(R.id.tmp_tv);
@@ -73,9 +82,7 @@ public class MainActivity extends AppCompatActivity {
 /////////載入TTS設定////////
         try{
 
-            //Intent intent = new Intent();
-            //intent.setAction(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA);
-            //startActivityForResult(intent, 2);
+            showWarnning();
 
             String st_language = DataSupport.find(Wordlist.class,4).getReactionWord();
             tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
@@ -105,13 +112,11 @@ public class MainActivity extends AppCompatActivity {
             /////Show Version/////
             String st_nowVersion = DataSupport.find(Wordlist.class,1).getReactionWord();
             local_version = Float.parseFloat(st_nowVersion);
-            tv_version.setText("Version: "+local_version);
+            tv_version.setText("現在版本: "+local_version);
         }catch (Exception e){
             e.printStackTrace();
         }
-//////////////////CheckNetwork
-
-        //////////////////
+//////
 
 
         bt_listen.setOnClickListener(new View.OnClickListener() {
@@ -130,6 +135,25 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 new DownloadUpdate(MainActivity.this,bt_update)
                         .execute("http://139.162.97.174/robot/databases/Wordlist.db");
+            }
+        });
+
+        bt_feedback.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                feedbackMail = "是咁的..."
+                        + "\n---------------"
+                        + "\n機器人聽到："+whatIsaid
+                        +",\n機器人回覆："+saywhat
+                        + "\n---------------"
+                        + "\n你應該：\n ";
+
+                Intent intent = new Intent();
+                intent.setAction(Intent.ACTION_SENDTO);
+                intent.setData(Uri.parse("mailto:you.archi.2017@gmail.com"));
+                intent.putExtra(Intent.EXTRA_SUBJECT,"寸嘴機器人投訴狀");
+                intent.putExtra(Intent.EXTRA_TEXT,feedbackMail);
+                startActivity(intent);
             }
         });
 
@@ -186,8 +210,10 @@ public class MainActivity extends AppCompatActivity {
                 if (resultCode == RESULT_OK) {
                     ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                     checkRobot cr = new checkRobot();
-                    String saywhat =  cr.getReturnword(this,result.get(0));
+                    whatIsaid = result.get(0);
+                    saywhat =  cr.getReturnword(this,whatIsaid);
                     sayNow(saywhat);
+                    changeImg();
                     break;
                 }
             /*
@@ -210,8 +236,7 @@ public class MainActivity extends AppCompatActivity {
     private void listenCounter(){
         int num = listen_counter;
         switch (num){
-            case 0:
-                checkWebDB();
+            case 0:;
                 break;
         }
         listen_counter = listen_counter + 1;
@@ -223,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
         web_version = getVersion(web_resource);
         db_link = getDBLink(web_resource);
         if (web_version > local_version){
-            tv_version.setText("Version: "+local_version+",有更新版本："+web_version);
+            tv_version.setText("現在版本: "+local_version+"-->有更新版本："+web_version);
             bt_update.setVisibility(View.VISIBLE);
         }
 
@@ -290,6 +315,23 @@ public class MainActivity extends AppCompatActivity {
         this.onDestroy();
     }
 
+    public void showWarnning(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("簽張生死狀！")
+                .setMessage("本程序含有令人不安的內容！\n你確定你已年満18歲,\n且心理承受能力正常？")
+                .setNegativeButton("不了!", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        onDestroy();
+                    } })
+                .setPositiveButton("當然！", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        checkWebDB();
+                    } })
+                .create().show();
+    }
+
     public boolean isNetworkConnected(Context context) {
         if (context != null) {
             ConnectivityManager mConnectivityManager = (ConnectivityManager) context
@@ -302,6 +344,17 @@ public class MainActivity extends AppCompatActivity {
         return false;
 
 
+    }
+
+    public void changeImg(){
+        //int numberOfFiles = new File().listFiles().length;
+        //String path = "R.drawable." +num;
+        Random random = new Random();
+        int[] pictures = new int[]{
+                R.drawable.img1,
+                R.drawable.img2
+        };
+        img_show.setImageResource(pictures[random.nextInt(pictures.length)]);
     }
 
 class DownloadUpdate extends AsyncTask<String, Integer, String> {
